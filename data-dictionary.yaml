@@ -77,12 +77,12 @@ tables:
           and `Public Elevator (L)`.
 
       - name: dv_lastper_insp_date
-        type: string
+        type: date
         description: >
           Date of the last periodic inspection by the NYC Department of
-          Buildings, in `YYYYMMDD` format. May be blank if the device has
-          never been inspected. Because the data is from late 2015, these
-          dates may no longer be current.
+          Buildings. May be missing if the device has never been inspected.
+          Because the data is from late 2015, these dates may no longer be
+          current.
 
       - name: dv_lastper_insp_disp
         type: enum
@@ -93,11 +93,10 @@ tables:
           record.
 
       - name: dv_approval_date
-        type: string
+        type: date
         description: >
-          Date the device was approved, in `YYYYMMDD` format. Typically
-          reflects when the device was first registered or last had a major
-          approval action.
+          Date the device was approved. Typically reflects when the device
+          was first registered or last had a major approval action.
 
       - name: dv_manufacturer
         type: string
@@ -168,10 +167,9 @@ tables:
           `S` = signal control, `H` = handicap. Blank for some devices.
 
       - name: dv_status_date
-        type: string
+        type: date
         description: >
-          Date when the device status was last updated, in `YYYYMMDD`
-          format.
+          Date when the device status was last updated.
 
       - name: dv_floor_from
         type: string

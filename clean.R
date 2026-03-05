@@ -13,6 +13,12 @@ elevators[] <- lapply(elevators, function(x) {
     ifelse(x == "", NA, x)
 })
 
+# Parse date columns (YYYYMMDD format)
+parse_date <- function(x) as.Date(as.character(x), format = "%Y%m%d")
+elevators$dv_lastper_insp_date <- parse_date(elevators$dv_lastper_insp_date)
+elevators$dv_approval_date <- parse_date(elevators$dv_approval_date)
+elevators$dv_status_date <- parse_date(elevators$dv_status_date)
+
 # Replace 0 with NA in zip_code
 elevators$zip_code[elevators$zip_code == 0] <- NA
 
