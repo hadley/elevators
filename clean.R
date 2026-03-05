@@ -56,4 +56,7 @@ elevators$zip_code <- ifelse(
   substr(sprintf("%05d", elevators$zip_code), 1, 5)
 )
 
+# Replace ** with NA in dv_manufacturer (means unknown)
+elevators$dv_manufacturer[elevators$dv_manufacturer == "**"] <- NA
+
 write_parquet(elevators, "elevators.parquet")
