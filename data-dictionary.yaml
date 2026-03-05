@@ -21,10 +21,13 @@ tables:
       - name: device_status
         type: enum<A, D, H, J, W>
         constraints: [required]
-        description: >
+        description: |
           Single-letter code for the device's registration status.
-          `A` = active, `D` = dismantled, `H` = NYCHA, `J` = no
-          jurisdiction, `W` = work in progress.
+          - `A`: active
+          - `D`: dismantled
+          - `H`: NYCHA
+          - `J`: no jurisdiction
+          - `W`: work in progress
 
       - name: bin
         type: number(id)
@@ -67,12 +70,17 @@ tables:
 
       - name: device_type
         type: enum
-        description: >
+        description: |
           Type of elevator device, with a letter code in parentheses.
-          Values include `Passenger Elevator (P)`, `Freight (F)`,
-          `Escalator (E)`, `Dumbwaiter (D)`, `Sidewalk (S)`,
-          `Private Elevator (T)`, `Handicap Lift (H)`, `Manlift (M)`,
-          and `Public Elevator (L)`.
+          - `Passenger Elevator (P)`
+          - `Freight (F)`
+          - `Escalator (E)`
+          - `Dumbwaiter (D)`
+          - `Sidewalk (S)`
+          - `Private Elevator (T)`
+          - `Handicap Lift (H)`
+          - `Manlift (M)`
+          - `Public Elevator (L)`
 
       - name: dv_lastper_insp_date
         type: date
@@ -84,11 +92,13 @@ tables:
 
       - name: dv_lastper_insp_disp
         type: enum
-        description: >
-          Disposition code from the last periodic inspection. Common values:
-          `DF` (deficiency found), `NV` (no violation), `PI` (partial
-          inspection), `VF` (violation filed). Blank if no inspection on
-          record.
+        description: |
+          Disposition code from the last periodic inspection.
+          Missing if no inspection on record.
+          - `DF`: deficiency found
+          - `NV`: no violation
+          - `PI`: partial inspection
+          - `VF`: violation filed
 
       - name: dv_approval_date
         type: date
@@ -132,39 +142,51 @@ tables:
 
       - name: dv_car_buffer_type
         type: string
-        description: >
-          Type of car buffer. `S` = spring, `O` = oil. Many entries are
-          blank, particularly for non-elevator devices. Other codes appear
-          infrequently.
+        description: |
+          Type of car buffer. Often missing, particularly for non-elevator
+          devices.
+          - `S`: spring
+          - `O`: oil
 
       - name: dv_governor_type
         type: string
-        description: >
-          Type of speed governor. `C` = centrifugal (by far the most
-          common), `F` = fly-ball, `N` = none. Blank for most
-          non-elevator devices. Other codes appear infrequently.
+        description: |
+          Type of speed governor. Often missing for non-elevator devices.
+          - `C`: centrifugal (most common)
+          - `F`: fly-ball
+          - `N`: none
 
       - name: dv_machine_type
         type: enum
-        description: >
-          Type of hoisting machine. Common values: `OG` (overhead geared),
-          `GL` (gearless), `OH` (overhead), `BG` (basement geared),
-          `BD` (basement drum), `O` (other), `T` (traction). Blank for
-          some devices.
+        description: |
+          Type of hoisting machine. Missing for some devices.
+          - `OG`: overhead geared
+          - `GL`: gearless
+          - `OH`: overhead
+          - `BG`: basement geared
+          - `BD`: basement drum
+          - `O`: other
+          - `T`: traction
 
       - name: dv_safety_type
         type: string
-        description: >
-          Type of safety device. Common values: `I` (instantaneous),
-          `F` (flexible guide clamp), `G` (governor-operated). Blank
-          for roughly half of all devices.
+        description: |
+          Type of safety device. Missing for roughly half of all devices.
+          - `I`: instantaneous
+          - `F`: flexible guide clamp
+          - `G`: governor-operated
 
       - name: dv_mode_operation
         type: string
-        description: >
-          Mode of operation. `A` = automatic, `P` = push button,
-          `E` = escalator, `C` = car-switch, `D` = dumbwaiter,
-          `S` = signal control, `H` = handicap. Blank for some devices.
+        description: |
+          Mode of operation. Missing for some devices.
+          - `A`: automatic
+          - `P`: push button
+          - `E`: escalator
+          - `C`: car-switch
+          - `D`: dumbwaiter
+          - `S`: signal control
+          - `H`: handicap
 
       - name: dv_status_date
         type: date
