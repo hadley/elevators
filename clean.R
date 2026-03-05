@@ -40,7 +40,12 @@ out_of_bounds <- !is.na(elevators$latitude) & (
 elevators$latitude[out_of_bounds] <- NA
 elevators$longitude[out_of_bounds] <- NA
 
-# Replace 0 with NA in zip_code
+# Clean zip_code: replace 0 with NA, truncate to 5 digits, convert to string
+# All 9-digit zips ended in 0000 (no real +4 data), so truncation is lossless
 elevators$zip_code[elevators$zip_code == 0] <- NA
+elevators$zip_code <- ifelse(
+  is.na(elevators$zip_code), NA,
+  substr(sprintf("%05d", elevators$zip_code), 1, 5)
+)
 
 write_parquet(elevators, "elevators.parquet")
