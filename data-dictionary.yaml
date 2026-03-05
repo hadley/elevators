@@ -48,14 +48,12 @@ tables:
       - name: TAX_BLOCK
         type: number(id)
         description: >
-          Tax block number within the borough, part of the Borough-Block-Lot
-          (BBL) identifier used by NYC for property tax purposes.
+          Tax block number within the borough, part of the BBL.
 
       - name: TAX_LOT
         type: number(id)
         description: >
-          Tax lot number within the block, part of the Borough-Block-Lot
-          (BBL) identifier.
+          Tax lot number within the block, part of the BBL.
 
       - name: HOUSE_NUMBER
         type: string
