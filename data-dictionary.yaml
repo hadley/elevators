@@ -60,21 +60,18 @@ tables:
       - name: HOUSE_NUMBER
         type: string
         description: >
-          Street number portion of the "Filed At" address. Note: this is the
-          address where paperwork was filed, which may differ from the
-          device's actual location.
+          Street number portion of the filed at address.
 
       - name: STREET_NAME
         type: string
         description: >
-          Street name portion of the "Filed At" address. May contain extra
-          spaces. Note: this is the filing address, not necessarily the
-          device's physical location.
+          Street name portion of the filed at address. May contain extra
+          spaces.
 
       - name: ZIP_CODE
         type: string
         description: >
-          ZIP code for the filed address. Frequently stored as a nine-digit
+          ZIP code for the filed at address. Frequently stored as a nine-digit
           ZIP+4 (e.g. `100030000`). Some values are `0`, indicating missing
           data.
 
@@ -248,6 +245,11 @@ glossary:
   governor: >
     A speed-limiting safety device on an elevator. If the car exceeds a
     set speed, the governor triggers the safety mechanism to stop the car.
+  filed at: >
+    The address where the elevator application or paperwork was filed with
+    the Department of Buildings. This may differ from the actual physical
+    location of the device. The BIN or Borough-Block-Lot is generally
+    more reliable for geolocation.
   car buffer: >
     A shock-absorbing device at the bottom of the elevator shaft that
     cushions the car in the event of an overrun. Spring buffers are used
