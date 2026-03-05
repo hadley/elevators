@@ -102,9 +102,8 @@ tables:
           Name of the device manufacturer as entered by the filer.
           Free-text with many inconsistencies (e.g. `OTIS` and
           `OTIS ELEV CO` are the same company). Over 2,000 unique values.
-          `**` appears to indicate unknown. Some entries like
-          `HOUSING AUTHORITY` or `PRIVATE RESIDENCE` describe ownership
-          rather than manufacturer.
+          Some entries like `HOUSING AUTHORITY` or `PRIVATE RESIDENCE` describe
+          ownership rather than manufacturer.
 
       - name: dv_travel_distance
         type: string
