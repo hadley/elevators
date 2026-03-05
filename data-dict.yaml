@@ -65,9 +65,8 @@ tables:
       - name: zip_code
         type: string
         description: >
-          ZIP code for the filed at address. Frequently stored as a nine-digit
-          ZIP+4 (e.g. `100030000`).
-        examples: ["10012", "100030000", "100020000", "100190000", "10302"]
+          Five-digit ZIP code for the filed at address.
+        examples: ["10001", "10302", "11109", "11362", "99999"]
 
       - name: borough
         type: enum
