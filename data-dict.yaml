@@ -5,11 +5,12 @@ description: >
   Department of Buildings in response to a September 2015 FOIL request.
   The data was received in November 2015 and covers ~76k devices.
   Includes elevators, escalators, dumbwaiters, and other vertical
-  transportation devices. Note: contains at least seven rows of dummy
-  test data (identifiable by street name `DUMMY RECORD`).
+  transportation devices.
 
 tables:
   - name: elevators
+    source:
+      parquet: elevators.parquet
     columns:
       - name: DV_DEVICE_NUMBER
         type: string
