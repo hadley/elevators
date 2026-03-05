@@ -92,13 +92,13 @@ tables:
           Type of elevator device.
 
       - name: dv_lastper_insp_date
-        type: string
+        type: date
+        range: [1988-08-19, 2015-10-13]
         description: >
           Date of the last periodic inspection by the NYC Department of
-          Buildings, in `YYYYMMDD` format. May be blank if the device has
-          never been inspected. Because the data is from late 2015, these
-          dates may no longer be current.
-        examples: ["20140325", "20150803", "20150429", "20141013", "20140731"]
+          Buildings. May be missing if the device has never been inspected.
+          Because the data is from late 2015, these dates may no longer be
+          current.
 
       - name: dv_lastper_insp_disp
         type: enum
@@ -108,12 +108,11 @@ tables:
           Missing if no inspection on record.
 
       - name: dv_approval_date
-        type: string
+        type: date
+        range: [1925-02-24, 2015-10-16]
         description: >
-          Date the device was approved, in `YYYYMMDD` format. Typically
-          reflects when the device was first registered or last had a major
-          approval action.
-        examples: ["19960524", "19961021", "19961001", "19961119", "19970102"]
+          Date the device was approved. Typically reflects when the device
+          was first registered or last had a major approval action.
 
       - name: dv_manufacturer
         type: string
@@ -182,11 +181,10 @@ tables:
           Mode of operation. Missing for some devices.
 
       - name: dv_status_date
-        type: string
+        type: date
+        range: [1940-07-18, 2015-10-17]
         description: >
-          Date when the device status was last updated, in `YYYYMMDD`
-          format.
-        examples: ["20090115", "20140113", "20090116", "19970226", "19970411"]
+          Date when the device status was last updated.
 
       - name: dv_floor_from
         type: string
