@@ -23,19 +23,9 @@ tables:
         type: enum<A, D, H, J, W>
         constraints: [required]
         description: >
-          Single-letter code for the device's registration status. See
-          `dv_device_status_description` for the full label.
-
-      - name: dv_device_status_description
-        type: enum<ACTIVE, DISMANTLED, NO JURIST, NYCHA, WK IN PROG>
-        constraints: [required]
-        description: >
-          Human-readable label for `device_status`. `ACTIVE` means the
-          device is currently registered and in service. `WK IN PROG` means
-          installation work is underway. `DISMANTLED` means the device has
-          been removed. `NO JURIST` means the device is outside DOB
-          jurisdiction. `NYCHA` indicates the device is in a New York City
-          Housing Authority building and inspected under a separate program.
+          Single-letter code for the device's registration status.
+          `A` = active, `D` = dismantled, `H` = NYCHA, `J` = no
+          jurisdiction, `W` = work in progress.
 
       - name: bin
         type: number(id)
