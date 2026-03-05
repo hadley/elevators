@@ -1,0 +1,276 @@
+$version: "0.1.0"
+$learn_more: http://data-dict.tidyverse.org/
+description: >
+  Registered elevator devices in New York City, as provided by the NYC
+  Department of Buildings in response to a September 2015 FOIL request.
+  The data was received in November 2015 and covers ~76k devices.
+  Includes elevators, escalators, dumbwaiters, and other vertical
+  transportation devices. Note: contains at least seven rows of dummy
+  test data (identifiable by street name `DUMMY RECORD`).
+
+tables:
+  - name: elevators
+    columns:
+      - name: DV_DEVICE_NUMBER
+        type: string
+        constraints: [primary_key]
+        description: >
+          Unique device number assigned by the NYC Department of Buildings.
+          Can be used to look up a device on the DOB
+          [Building Information Search](http://a810-bisweb.nyc.gov/bisweb/bispi00.jsp)
+          (Field 26).
+        examples: [1D1, 1P26114, 1P47998, 3P14044, 5T722]
+
+      - name: Device Status
+        type: enum
+        values: {A: active, D: dismantled, H: NYCHA, J: no jurisdiction, W: work in progress}
+        constraints: [required]
+        description: >
+          Single-letter code for the device's registration status. See
+          `DV_DEVICE_STATUS_DESCRIPTION` for the full label.
+
+      - name: DV_DEVICE_STATUS_DESCRIPTION
+        type: enum
+        values: [ACTIVE, DISMANTLED, NO JURIST, NYCHA, WK IN PROG]
+        constraints: [required]
+        description: >
+          Human-readable label for `Device Status`. `ACTIVE` means the
+          device is currently registered and in service. `WK IN PROG` means
+          installation work is underway. `DISMANTLED` means the device has
+          been removed. `NO JURIST` means the device is outside DOB
+          jurisdiction. `NYCHA` indicates the device is in a New York City
+          Housing Authority building and inspected under a separate program.
+
+      - name: BIN
+        type: number(id)
+        description: >
+          Building Identification Number, a unique identifier assigned by
+          the NYC Department of Buildings to each building. More reliable
+          than street address for geolocation.
+        examples: [1000003, 1044931, 2018006, 3329429, 5863656]
+
+      - name: TAX_BLOCK
+        type: number(id)
+        description: >
+          Tax block number within the borough, part of the BBL.
+        examples: [1, 1726, 3627, 6356, 16350]
+
+      - name: TAX_LOT
+        type: string
+        description: >
+          Tax lot number within the block, part of the BBL. Stored as a
+          string because some lots have letter suffixes (e.g. `7501T`).
+        examples: ["1", "276", "483", "992", "7501T"]
+
+      - name: HOUSE_NUMBER
+        type: string
+        description: >
+          Street number portion of the filed at address.
+        examples: ["1", "55", "200", "521", "72-20"]
+
+      - name: STREET_NAME
+        type: string
+        description: >
+          Street name portion of the filed at address. May contain extra
+          spaces.
+        examples: [BROADWAY, EAST 28 ST, FOOD CENTER DRIVE, HOWARD AVE, SEVENTH AVENUE]
+
+      - name: ZIP_CODE
+        type: string
+        description: >
+          ZIP code for the filed at address. Frequently stored as a nine-digit
+          ZIP+4 (e.g. `100030000`). Some values are `0`, indicating missing
+          data.
+        examples: ["0", "10012", "100030000", "100020000", "100190000"]
+
+      - name: Borough
+        type: enum
+        values: [Bronx, Brooklyn, Manhattan, Queens, Staten Island]
+        description: >
+          NYC borough where the device is located. A small number of rows
+          have this field blank.
+
+      - name: Device Type
+        type: enum
+        values:
+          - Passenger Elevator (P)
+          - Freight (F)
+          - Escalator (E)
+          - Dumbwaiter (D)
+          - Sidewalk (S)
+          - Private Elevator (T)
+          - Handicap Lift (H)
+          - Manlift (M)
+          - Public Elevator (L)
+        description: >
+          Type of elevator device.
+
+      - name: DV_LASTPER_INSP_DATE
+        type: string
+        description: >
+          Date of the last periodic inspection by the NYC Department of
+          Buildings, in `YYYYMMDD` format. May be blank if the device has
+          never been inspected. Because the data is from late 2015, these
+          dates may no longer be current.
+        examples: ["20140325", "20150803", "20150429", "20141013", "20140731"]
+
+      - name: DV_LASTPER_INSP_DISP
+        type: enum
+        values: {DF: deficiency found, NV: no violation, PI: partial inspection, VF: violation filed}
+        description: >
+          Disposition code from the last periodic inspection. Blank if no
+          inspection on record.
+
+      - name: DV_APPROVAL_DATE
+        type: string
+        description: >
+          Date the device was approved, in `YYYYMMDD` format. Typically
+          reflects when the device was first registered or last had a major
+          approval action.
+        examples: ["19960524", "19961021", "19961001", "19961119", "19970102"]
+
+      - name: DV_MANUFACTURER
+        type: string
+        description: >
+          Name of the device manufacturer as entered by the filer.
+          Free-text with many inconsistencies (e.g. `OTIS` and
+          `OTIS ELEV CO` are the same company). Over 2,000 unique values.
+          `**` appears to indicate unknown. Some entries like
+          `HOUSING AUTHORITY` or `PRIVATE RESIDENCE` describe ownership
+          rather than manufacturer.
+        examples: [OTIS, HOUSING AUTHORITY, PRIVATE RESIDENCE, MRL ELEVATOR, STALEY]
+
+      - name: DV_TRAVEL_DISTANCE
+        type: string
+        description: >
+          Vertical travel distance of the device. Often omitted, and when
+          present the units and format are highly inconsistent: may be in
+          feet, feet-and-inches, or other notations. Use with caution.
+        examples: ["14'", "24 FT", "16'4\"", "73-10", "410"]
+
+      - name: DV_SPEED_FPM
+        type: string
+        description: >
+          Speed of the device in feet per minute. Common values include
+          `50`, `100`, `200`, `350`. Stored as a string because some
+          entries contain non-numeric data.
+        examples: ["50", "25", "100", "30", "35"]
+
+      - name: DV_CAPACITY_LBS
+        type: string
+        description: >
+          Weight capacity of the device in pounds. Common values include
+          `2500`, `3000`, `3500` for passenger elevators. Stored as a
+          string because some entries may contain non-numeric data.
+        examples: ["500", "300", "200", "400", "75"]
+
+      - name: DV_CAR_BUFFER_TYPE
+        type: enum
+        values: {S: spring, O: oil}
+        description: >
+          Type of car buffer. Many entries are blank, particularly for
+          non-elevator devices. Other codes appear infrequently.
+
+      - name: DV_GOVERNOR_TYPE
+        type: enum
+        values: {C: centrifugal, F: fly-ball, N: none}
+        description: >
+          Type of speed governor. Blank for most non-elevator devices.
+          Other codes appear infrequently.
+
+      - name: DV_MACHINE_TYPE
+        type: enum
+        values: {OG: overhead geared, GL: gearless, OH: overhead, BG: basement geared, BD: basement drum, O: other, T: traction}
+        description: >
+          Type of hoisting machine. Blank for some devices.
+
+      - name: DV_SAFETY_TYPE
+        type: enum
+        values: {I: instantaneous, F: flexible guide clamp, G: governor-operated}
+        description: >
+          Type of safety device. Blank for roughly half of all devices.
+
+      - name: DV_MODE_OPERATION
+        type: enum
+        values: {A: automatic, P: push button, E: escalator, C: car-switch, D: dumbwaiter, S: signal control, H: handicap}
+        description: >
+          Mode of operation. Blank for some devices.
+
+      - name: DV_STATUS_DATE
+        type: string
+        description: >
+          Date when the device status was last updated, in `YYYYMMDD`
+          format.
+        examples: ["20090115", "20140113", "20090116", "19970226", "19970411"]
+
+      - name: DV_FLOOR_FROM
+        type: string
+        description: >
+          Lowest floor served by the device. May be a number (`1`), a
+          letter code (`B` for basement, `C` for cellar, `SB` for
+          sub-basement), or other notations.
+        examples: [B, "1", C, SB, L]
+
+      - name: DV_FLOOR_TO
+        type: string
+        description: >
+          Highest floor served by the device. May be a number or a
+          letter code.
+        examples: ["2", "6", "12", PH, R]
+
+      - name: LATITUDE
+        type: number
+        description: >
+          Approximate latitude of the device's building, obtained by
+          geocoding the BIN, Borough-Block-Lot, or street address via
+          the NYC Geoclient API. Not authoritative; some values may be
+          in error.
+        examples: [40.7645, 40.7273, 40.7368, 40.7177, 40.7261]
+
+      - name: LONGITUDE
+        type: number
+        description: >
+          Approximate longitude of the device's building, obtained by
+          geocoding. Not authoritative; some values may be in error.
+        examples: [-73.9541, -73.9998, -73.9911, -73.993, -73.9885]
+
+glossary:
+  BIN: >
+    Building Identification Number. A unique numeric identifier assigned
+    to each building by the NYC Department of Buildings.
+  BBL: >
+    Borough-Block-Lot. A three-part identifier (borough code, tax block,
+    tax lot) used by NYC to uniquely identify a parcel of land for
+    property tax purposes.
+  DOB: >
+    New York City Department of Buildings. The agency responsible for
+    ensuring the safe and lawful use of buildings and properties.
+  NYCHA: >
+    New York City Housing Authority. The public housing authority for NYC,
+    which manages its own elevator inspection program.
+  periodic inspection: >
+    A required inspection of elevator devices conducted by the NYC
+    Department of Buildings on a regular cycle (typically annual or
+    biennial depending on device type).
+  manlift: >
+    A continuous-loop conveyor with platforms or steps used to transport
+    people between floors. Largely obsolete and rarely installed new.
+  sidewalk elevator: >
+    A freight elevator that opens at sidewalk level, used to move goods
+    between the sidewalk and a building's basement or cellar.
+  gearless traction: >
+    An elevator machine type where the motor directly drives the sheave
+    without a gearbox. Used in high-rise buildings for high speeds and
+    smooth operation.
+  governor: >
+    A speed-limiting safety device on an elevator. If the car exceeds a
+    set speed, the governor triggers the safety mechanism to stop the car.
+  filed at: >
+    The address where the elevator application or paperwork was filed with
+    the Department of Buildings. This may differ from the actual physical
+    location of the device. The BIN or Borough-Block-Lot is generally
+    more reliable for geolocation.
+  car buffer: >
+    A shock-absorbing device at the bottom of the elevator shaft that
+    cushions the car in the event of an overrun. Spring buffers are used
+    for lower speeds; oil buffers for higher speeds.

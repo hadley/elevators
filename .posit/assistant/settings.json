@@ -1,0 +1,16 @@
+{
+  "permission": {
+    "executeCode": {
+      "*": "allow"
+    },
+    "edit": {
+      "*.yaml": "allow",
+      "*.R": "allow",
+      "*.qmd": "allow"
+    },
+    "bash": {
+      "cd *": "allow",
+      "air *": "allow"
+    }
+  }
+}
