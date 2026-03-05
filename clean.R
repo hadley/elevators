@@ -19,6 +19,18 @@ elevators$dv_lastper_insp_date <- parse_date(elevators$dv_lastper_insp_date)
 elevators$dv_approval_date <- parse_date(elevators$dv_approval_date)
 elevators$dv_status_date <- parse_date(elevators$dv_status_date)
 
+# Clean dv_speed_fpm: extract leading number, convert to numeric
+elevators$dv_speed_fpm <- suppressWarnings(
+  as.numeric(gsub("^([0-9.,]+).*", "\\1", gsub(",", "", elevators$dv_speed_fpm)))
+)
+
+# Clean dv_capacity_lbs: fix O->0, remove commas, extract leading number
+elevators$dv_capacity_lbs <- gsub("[Oo]", "0", elevators$dv_capacity_lbs)
+elevators$dv_capacity_lbs <- gsub(",", "", elevators$dv_capacity_lbs)
+elevators$dv_capacity_lbs <- suppressWarnings(
+  as.numeric(gsub("[^0-9.].*$", "", elevators$dv_capacity_lbs))
+)
+
 # Replace 0 with NA in zip_code
 elevators$zip_code[elevators$zip_code == 0] <- NA
 
