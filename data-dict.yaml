@@ -205,20 +205,20 @@ tables:
         examples: ["2", "6", "12", PH, R]
 
       - name: latitude
-        type: number
+        type: number(quantity)
+        range: [40.5, 40.9]
         description: >
           Approximate latitude of the device's building, obtained by
           geocoding the BIN, Borough-Block-Lot, or street address via
           the NYC Geoclient API. Not authoritative; some values may be
           in error.
-        examples: [40.7645, 40.7273, 40.7368, 40.7177, 40.7261]
 
       - name: longitude
-        type: number
+        type: number(quantity)
+        range: [-74.3, -73.7]
         description: >
           Approximate longitude of the device's building, obtained by
           geocoding. Not authoritative; some values may be in error.
-        examples: [-73.9541, -73.9998, -73.9911, -73.993, -73.9885]
 
 glossary:
   BIN: >
