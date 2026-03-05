@@ -3,6 +3,7 @@ library(nanoparquet)
 elevators <- read.csv("elevators.csv", skip = 1)
 elevators$X <- NULL
 elevators$DV_DEVICE_STATUS_DESCRIPTION <- NULL
+elevators <- elevators[elevators$STREET_NAME != "DUMMY RECORD" | is.na(elevators$STREET_NAME), ]
 
 names(elevators) <- tolower(gsub(".", "_", names(elevators), fixed = TRUE))
 
