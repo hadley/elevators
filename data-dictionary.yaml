@@ -53,8 +53,7 @@ tables:
       - name: street_name
         type: string
         description: >
-          Street name portion of the filed at address. May contain extra
-          spaces.
+          Street name portion of the filed at address.
 
       - name: zip_code
         type: string

@@ -8,7 +8,9 @@ names(elevators) <- tolower(gsub(".", "_", names(elevators), fixed = TRUE))
 
 # Replace "" with NA in character columns
 elevators[] <- lapply(elevators, function(x) {
-  if (is.character(x)) ifelse(x == "", NA, x) else x
+  if (!is.character(x)) return(x)
+    x <- trimws(gsub("\\s+", " ", x))
+    ifelse(x == "", NA, x)
 })
 
 # Replace 0 with NA in zip_code
