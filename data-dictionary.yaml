@@ -60,8 +60,7 @@ tables:
         type: string
         description: >
           ZIP code for the filed at address. Frequently stored as a nine-digit
-          ZIP+4 (e.g. `100030000`). Some values are `0`, indicating missing
-          data.
+          ZIP+4 (e.g. `100030000`).
 
       - name: borough
         type: enum<Bronx, Brooklyn, Manhattan, Queens, Staten Island>
