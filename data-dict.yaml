@@ -75,15 +75,15 @@ tables:
       - name: device_type
         type: enum
         values:
-          Passenger Elevator (P): Passenger elevator
-          Freight (F): Freight elevator
-          Escalator (E): Escalator
-          Dumbwaiter (D): Dumbwaiter
-          Sidewalk (S): Sidewalk elevator
-          Private Elevator (T): Private elevator
-          Handicap Lift (H): Handicap lift
-          Manlift (M): Manlift
-          Public Elevator (L): Public elevator
+          - Passenger Elevator (P)
+          - Freight (F)
+          - Escalator (E)
+          - Dumbwaiter (D)
+          - Sidewalk (S)
+          - Private Elevator (T)
+          - Handicap Lift (H)
+          - Manlift (M)
+          - Public Elevator (L)
         description: >
           Type of elevator device.
 
