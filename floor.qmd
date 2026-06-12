@@ -1,0 +1,328 @@
+---
+title: "Cleaning `dv_floor_from` and `dv_floor_to`"
+format:
+  html:
+    embed-resources: true
+execute:
+  echo: true
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: "#>"
+---
+
+```{r}
+#| label: setup
+#| message: false
+library(dplyr)
+library(stringr)
+library(ggplot2)
+```
+
+The raw `DV_FLOOR_FROM` and `DV_FLOOR_TO` columns record the lowest and highest
+floors served by each device. This document examines the raw values, identifies
+groups and problems, and proposes the cleaning rules applied by `clean.R`.
+
+## The raw values
+
+```{r}
+#| label: read-raw
+raw <- read.csv("elevators.csv", skip = 1)
+raw <- raw[!is.na(raw$BIN), ]
+
+normalize <- function(x) {
+  x <- trimws(gsub("\\s+", " ", x))
+  ifelse(x == "", NA, x)
+}
+from_raw <- normalize(raw$DV_FLOOR_FROM)
+to_raw   <- normalize(raw$DV_FLOOR_TO)
+
+source("clean-travel-distance.R")
+dist_ft <- parse_travel_distance(normalize(raw$DV_TRAVEL_DISTANCE))
+
+tibble(
+  column    = c("DV_FLOOR_FROM", "DV_FLOOR_TO"),
+  n         = c(length(from_raw), length(to_raw)),
+  missing   = c(sum(is.na(from_raw)), sum(is.na(to_raw))),
+  pct_miss  = round(100 * missing / n),
+  n_distinct = c(n_distinct(from_raw, na.rm = TRUE), n_distinct(to_raw, na.rm = TRUE))
+)
+```
+
+```{r}
+#| label: top-from
+sort(table(from_raw), decreasing = TRUE) |> head(20)
+```
+
+```{r}
+#| label: top-to
+sort(table(to_raw), decreasing = TRUE) |> head(20)
+```
+
+The most common `floor_from` values are `B` (basement), `1`, `C` (cellar), and
+`L` (lobby). The most common `floor_to` is `6`, reflecting that the majority
+of NYC elevator devices serve low-rise residential buildings. `PH` (penthouse)
+and `ST` (street) also appear.
+
+## Classifying patterns
+
+```{r}
+#| label: classify
+floor_type <- function(x) {
+  case_when(
+    is.na(x)                            ~ "missing",
+    str_detect(x, "^\\.\\.")            ~ "dotdot prefix",
+    str_detect(x, "^-?\\d+$")          ~ "integer",
+    str_detect(x, "^\\d*\\.\\d+$")     ~ "decimal",
+    str_detect(x, ",")                  ~ "comma-separated",
+    str_detect(x, "^[A-Za-z]+$")       ~ "alpha label",
+    TRUE                                ~ "other"
+  )
+}
+
+all_vals <- tibble(
+  value  = c(from_raw, to_raw),
+  column = rep(c("floor_from", "floor_to"), each = length(from_raw))
+)
+
+all_vals |>
+  mutate(type = floor_type(value)) |>
+  count(type, sort = TRUE) |>
+  mutate(pct = round(100 * n / sum(n), 1))
+```
+
+## Per-group findings
+
+### Integer floors
+
+The majority of numeric floor labels are plausible single integers:
+
+```{r}
+#| label: integer-dist
+int_vals <- all_vals |>
+  filter(floor_type(value) == "integer") |>
+  mutate(n = as.integer(value))
+
+summary(int_vals$n)
+```
+
+```{r}
+#| label: integer-hist
+ggplot(int_vals, aes(n)) +
+  geom_histogram(binwidth = 5, boundary = 0) +
+  labs(x = "Floor number", y = "Count")
+```
+
+The bulk of integer floors fall below 100, which is expected for NYC buildings.
+Values above the floor count of NYC's tallest buildings (~104 floors as of this
+data's vintage) are almost certainly data entry errors — likely elevator
+specifications entered in non-floor units (e.g., a speed or capacity number
+placed in the wrong field):
+
+```{r}
+#| label: integer-large
+sort(unique(int_vals$n[int_vals$n > 104]))
+```
+
+```{r}
+#| label: large-floor-context
+tibble(
+  from = from_raw,
+  to   = to_raw,
+  dist_ft
+) |>
+  filter(
+    !is.na(from), !is.na(to),
+    str_detect(from, "^\\d+$") | str_detect(to, "^\\d+$")
+  ) |>
+  mutate(
+    from_n = suppressWarnings(as.integer(from)),
+    to_n   = suppressWarnings(as.integer(to))
+  ) |>
+  filter(coalesce(from_n, 0L) > 104 | coalesce(to_n, 0L) > 104) |>
+  count(from, to, dist_ft, sort = TRUE) |>
+  head(20)
+```
+
+These large values appear in recurring clusters (100→300, 150→200, 100→150)
+with travel distances of 10–90 ft, yielding an implied 0.2–0.5 ft per "floor"
+— physically impossible. All integer floor labels above 104 are set to `NA`.
+
+### Alpha labels
+
+```{r}
+#| label: alpha-labels
+alpha_vals <- all_vals |>
+  filter(floor_type(value) == "alpha label") |>
+  count(value, sort = TRUE)
+
+alpha_vals |> head(25)
+```
+
+Standard elevator designations: `B` (basement), `C` (cellar), `L` (lobby),
+`G` (ground), `M` (mezzanine), `PH` (penthouse), `R` (roof), `T` (top),
+`ST` (street), `SB` (sub-basement), `SC` (sub-cellar), `LL` (lower lobby).
+These are all legitimate and kept as-is.
+
+### Dotdot prefix (`..B`, `..1`, `..L`, …)
+
+```{r}
+#| label: dotdot
+dotdot_vals <- all_vals |>
+  filter(floor_type(value) == "dotdot prefix") |>
+  mutate(stripped = str_remove(value, "^\\.+")) |>
+  count(value, stripped, sort = TRUE)
+
+dotdot_vals
+```
+
+Every dotdot value is a standard floor label with a leading `..` (occasionally
+`.`). Comparing the stripped label against the non-dotdot counterparts:
+
+```{r}
+#| label: dotdot-compare
+# Compare the top-5 dotdot from values to their non-dotdot equivalents
+tibble(from = from_raw, to = to_raw) |>
+  filter(from %in% c("..B", "..1", "..L", "..C")) |>
+  count(from, to, sort = TRUE) |>
+  head(20)
+```
+
+```{r}
+tibble(from = from_raw, to = to_raw) |>
+  filter(from %in% c("B", "1", "L", "C")) |>
+  count(from, to, sort = TRUE) |>
+  head(20)
+```
+
+The `..B → 6` pattern (102 cases) mirrors exactly the `B → 6` pattern (6,775
+cases). The leading dots carry no information and are stripped: `..B` → `B`,
+`..1` → `1`, etc.
+
+### Decimal floors
+
+```{r}
+#| label: decimal
+decimal_vals <- all_vals |>
+  filter(floor_type(value) == "decimal") |>
+  count(value, sort = TRUE)
+
+decimal_vals
+```
+
+Values like `0.1`, `0.2`, `0.6` are not recognizable floor designations in
+any standard NYC building convention, and almost all records containing them
+have no travel distance:
+
+```{r}
+#| label: decimal-context
+tibble(from = from_raw, to = to_raw, dist_ft) |>
+  filter(
+    str_detect(coalesce(from, ""), "^\\d*\\.\\d+$") |
+    str_detect(coalesce(to, ""),   "^\\d*\\.\\d+$")
+  ) |>
+  summarise(
+    n = n(),
+    n_with_distance = sum(!is.na(dist_ft))
+  )
+```
+
+These are most likely data entry errors (perhaps fractional numbers intended
+to represent something else). All decimal floor values are set to `NA`.
+
+### Comma-separated floors
+
+```{r}
+#| label: comma
+all_vals |>
+  filter(floor_type(value) == "comma-separated") |>
+  count(value, sort = TRUE) |>
+  head(20)
+```
+
+Values like `B,1` or `C,1` appear in `floor_from` and describe elevators with
+two entrance points at the bottom (e.g., an entrance at both the cellar and
+the ground floor). These multi-level lobby arrangements are common in NYC
+buildings. The values are kept as-is; they are not parseable to a single
+integer but are valid labels.
+
+## Cross-column consistency
+
+### Inverted floors
+
+For purely numeric floor pairs, `floor_from` should be ≤ `floor_to`. Checking:
+
+```{r}
+#| label: inverted
+tibble(from = from_raw, to = to_raw) |>
+  filter(
+    str_detect(coalesce(from, ""), "^\\d+$"),
+    str_detect(coalesce(to, ""), "^\\d+$")
+  ) |>
+  mutate(from_n = as.integer(from), to_n = as.integer(to)) |>
+  summarise(
+    n_inverted = sum(from_n > to_n),
+    n_equal    = sum(from_n == to_n),
+    n_normal   = sum(from_n < to_n)
+  )
+```
+
+141 records have `floor_from > floor_to` numerically. These are most likely
+data entry transpositions rather than deliberate encoding (there is no
+convention where a higher numeric `floor_from` is meaningful):
+
+```{r}
+#| label: inverted-examples
+tibble(from = from_raw, to = to_raw, dist_ft) |>
+  filter(
+    str_detect(coalesce(from, ""), "^\\d+$"),
+    str_detect(coalesce(to, ""), "^\\d+$"),
+    as.integer(from) > as.integer(to)
+  ) |>
+  arrange(desc(as.integer(from) - as.integer(to))) |>
+  head(10)
+```
+
+The largest inversions (e.g., 11→1, 6→3) look like transpositions. These are
+corrected by swapping `floor_from` and `floor_to`.
+
+### Travel distance consistency
+
+For records with numeric floor pairs and a recorded travel distance, the
+implied feet per floor should be roughly 10–14 (standard floor-to-ceiling
+height):
+
+```{r}
+#| label: ft-per-floor
+tibble(from = from_raw, to = to_raw, dist_ft) |>
+  filter(
+    str_detect(coalesce(from, ""), "^\\d+$"),
+    str_detect(coalesce(to, ""), "^\\d+$"),
+    !is.na(dist_ft)
+  ) |>
+  mutate(
+    from_n = as.integer(from),
+    to_n   = as.integer(to),
+    span   = abs(to_n - from_n),
+    ft_per_floor = dist_ft / span
+  ) |>
+  filter(span > 0, !is.na(ft_per_floor)) |>
+  ggplot(aes(ft_per_floor)) +
+  geom_histogram(bins = 60) +
+  scale_x_log10() +
+  labs(x = "Implied ft per floor (log scale)", y = "Count")
+```
+
+The cluster around 10 ft/floor is reassuring. The left tail (< 2 ft/floor)
+and right tail (> 100 ft/floor) contain the anomalies already identified:
+large integer floor numbers and single-floor spans with implausibly large
+travel distances.
+
+## Summary of cleaning rules
+
+| Problem | Rule |
+|---|---|
+| `..B`, `..1`, etc. | Strip leading dots |
+| Decimal floors (`0.1`, `0.6`, …) | Set to `NA` |
+| Integer floor > 104 | Set to `NA` |
+| `floor_from` > `floor_to` (both integers) | Swap the two values |
