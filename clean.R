@@ -30,6 +30,11 @@ elevators$dv_speed_fpm <- suppressWarnings(
     gsub(",", "", elevators$dv_speed_fpm)
   ))
 )
+# Implausible speeds: < 10 fpm (too slow for any device; escalators at 5-9 fpm
+# are missing a digit) and > 3000 fpm (exceeds any NYC installation).
+# See consistency.qmd for the analysis behind these thresholds.
+elevators$dv_speed_fpm[elevators$dv_speed_fpm < 10] <- NA
+elevators$dv_speed_fpm[elevators$dv_speed_fpm > 3000] <- NA
 
 # Clean dv_capacity_lbs: fix O->0, remove commas, extract leading number
 elevators$dv_capacity_lbs <- gsub("[Oo]", "0", elevators$dv_capacity_lbs)
@@ -43,6 +48,9 @@ source("clean-travel-distance.R")
 elevators$dv_travel_distance <- parse_travel_distance(
   elevators$dv_travel_distance
 )
+# Distances below 3 ft are too short to represent any real device.
+# See consistency.qmd for the analysis behind this threshold.
+elevators$dv_travel_distance[elevators$dv_travel_distance < 3] <- NA
 
 # Clean dv_floor_from and dv_floor_to.
 # See floor.qmd for the analysis behind these rules.

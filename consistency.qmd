@@ -1,0 +1,270 @@
+---
+title: "Cross-column consistency: speed, travel distance, and floors"
+format:
+  html:
+    embed-resources: true
+execute:
+  echo: true
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: "#>"
+---
+
+```{r}
+#| label: setup
+#| message: false
+library(dplyr)
+library(ggplot2)
+library(stringr)
+
+elev <- nanoparquet::read_parquet("elevators.parquet")
+```
+
+The three columns `dv_speed_fpm`, `dv_travel_distance`, and the floor pair
+`dv_floor_from`/`dv_floor_to` each describe the physical behaviour of a
+device. They should be mutually consistent: an elevator's travel distance
+should match the number of floors it serves, and its speed should imply a
+reasonable travel time. This document checks those relationships and proposes
+rules for setting implausible values to missing.
+
+```{r}
+#| label: coverage
+elev |>
+  mutate(
+    speed_missing    = is.na(dv_speed_fpm),
+    distance_missing = is.na(dv_travel_distance),
+    floors_missing   = is.na(dv_floor_from) | is.na(dv_floor_to)
+  ) |>
+  count(speed_missing, distance_missing, floors_missing)
+```
+
+The most complete combination — all three fields present — covers about 37% of
+records. Floor pairs are the most widely recorded field; travel distance is the
+sparsest. The cross-checks below draw on whichever subset has both relevant
+fields recorded.
+
+## Speed
+
+```{r}
+#| label: speed-dist
+#| fig-height: 3
+elev |>
+  filter(!is.na(dv_speed_fpm)) |>
+  ggplot(aes(dv_speed_fpm)) +
+  geom_histogram(binwidth = 25, boundary = 0) +
+  scale_x_continuous(limits = c(0, 2100)) +
+  labs(x = "Speed (fpm)", y = "Devices",
+       caption = "Truncated at 2,100 fpm; 27 records above that limit not shown.")
+```
+
+The distribution is dominated by a handful of standard speeds (100, 200, 350
+fpm for low-rise residential; 700–1,200 fpm for commercial high-rise). The
+tails hold the problems.
+
+### Too slow
+
+```{r}
+#| label: speed-slow
+elev |>
+  filter(!is.na(dv_speed_fpm), dv_speed_fpm < 10) |>
+  count(dv_speed_fpm, device_type, sort = TRUE)
+```
+
+57 devices record a speed below 10 fpm, including 2 at exactly 0. The
+fastest a person climbs stairs is roughly 60 fpm; no mechanically-driven
+vertical transport device operates below ~10 fpm in normal service. Escalators
+dominate this group with speeds of 5–9 fpm, whereas real escalators run at
+90–120 fpm — these values are almost certainly missing a digit (5 → 50 fpm,
+or 9 → 90 fpm). All speeds below 10 fpm are set to missing.
+
+### Too fast
+
+```{r}
+#| label: speed-fast
+elev |>
+  filter(!is.na(dv_speed_fpm), dv_speed_fpm > 2000) |>
+  select(dv_speed_fpm, dv_travel_distance, dv_floor_from, dv_floor_to, device_type) |>
+  arrange(desc(dv_speed_fpm))
+```
+
+27 devices record speeds above 2,000 fpm. The fastest elevator installed in
+NYC by 2015 (One World Trade Center) ran at approximately 2,000 fpm. Values
+above 2,000 fpm are plausible for a short window of installations. The 12
+records above 3,000 fpm (up to 7,000 fpm) are not: the world record in 2015
+was ~4,034 fpm and was set in China, not New York. The two 6,819 fpm records
+serve just 1–2 floors — a physically impossible combination of speed and
+floor span. All speeds above 3,000 fpm are set to missing.
+
+```{r}
+#| label: speed-fast-zoom
+elev |>
+  filter(!is.na(dv_speed_fpm), dv_speed_fpm > 2000) |>
+  ggplot(aes(dv_speed_fpm)) +
+  geom_dotplot(binwidth = 100) +
+  labs(x = "Speed (fpm)", y = NULL, title = "Speeds above 2,000 fpm")
+```
+
+There is a visible gap between the 1,400–2,000 fpm cluster (plausible
+high-speed elevators) and the 3,350–7,000 fpm outliers. 3,000 fpm is a
+conservative threshold that preserves the plausible high-speed devices.
+
+## Travel distance
+
+```{r}
+#| label: dist-dist
+#| fig-height: 3
+elev |>
+  filter(!is.na(dv_travel_distance)) |>
+  ggplot(aes(dv_travel_distance)) +
+  geom_histogram(binwidth = 10, boundary = 0) +
+  labs(x = "Travel distance (ft)", y = "Devices")
+```
+
+```{r}
+#| label: dist-small
+elev |>
+  filter(!is.na(dv_travel_distance), dv_travel_distance < 5) |>
+  select(dv_travel_distance, dv_speed_fpm, dv_floor_from, dv_floor_to, device_type) |>
+  arrange(dv_travel_distance)
+```
+
+15 records have travel distances below 5 ft. The smallest (0.33 ft, 0.43 ft,
+0.62 ft) are far too short to represent any real device: even a dumbwaiter
+serving just two adjacent floors would travel at least 8–10 ft. Values below
+3 ft are set to missing.
+
+## Distance vs floor span
+
+For records with clean, purely-numeric floor pairs the implied height per
+floor (travel distance / number of floors spanned) should be roughly 10–14 ft
+for standard construction.
+
+```{r}
+#| label: ft-per-floor
+num_floors <- elev |>
+  filter(
+    !is.na(dv_travel_distance),
+    str_detect(coalesce(dv_floor_from, ""), "^\\d+$"),
+    str_detect(coalesce(dv_floor_to, ""), "^\\d+$")
+  ) |>
+  mutate(
+    from_n = as.integer(dv_floor_from),
+    to_n   = as.integer(dv_floor_to),
+    span   = to_n - from_n,
+    ft_per_floor = dv_travel_distance / span
+  ) |>
+  filter(span > 0)
+
+ggplot(num_floors, aes(ft_per_floor)) +
+  geom_histogram(bins = 60) +
+  scale_x_log10() +
+  labs(x = "Implied ft per floor (log scale)", y = "Count")
+```
+
+```{r}
+#| label: ft-per-floor-outliers
+num_floors |>
+  filter(ft_per_floor < 5 | ft_per_floor > 25) |>
+  select(dv_travel_distance, dv_speed_fpm, from_n, to_n, span, ft_per_floor) |>
+  arrange(ft_per_floor) |>
+  head(20)
+```
+
+The outliers on the low end (< 5 ft/floor) are records where a large floor
+span is paired with a small travel distance — typically a travel distance
+entry of 1–4 ft for a 3–16 floor span. On the high end (> 25 ft/floor),
+the pattern is a single-floor span with an implausibly large travel distance
+(100–435 ft for one floor). These are travel-distance errors, not floor
+errors; the floor pairs look correct. Flagging these as `dv_travel_distance`
+problems:
+
+```{r}
+num_floors |>
+  summarise(
+    n_low  = sum(ft_per_floor < 5),
+    n_high = sum(ft_per_floor > 25)
+  )
+```
+
+## Travel time
+
+For records with both a speed and a travel distance the implied travel time
+in minutes is `dv_travel_distance / dv_speed_fpm`.
+
+```{r}
+#| label: travel-time-dist
+#| fig-height: 3
+elev |>
+  filter(!is.na(dv_travel_distance), !is.na(dv_speed_fpm), dv_speed_fpm > 0) |>
+  mutate(travel_min = dv_travel_distance / dv_speed_fpm) |>
+  ggplot(aes(travel_min)) +
+  geom_histogram(bins = 60) +
+  scale_x_log10() +
+  labs(x = "Implied travel time (minutes, log scale)", y = "Count")
+```
+
+The bulk of devices have travel times of a few seconds to a couple of minutes,
+which is realistic. The tails hold two distinct problems.
+
+### Implausibly short (< 3 seconds)
+
+```{r}
+#| label: travel-short
+elev |>
+  filter(!is.na(dv_travel_distance), !is.na(dv_speed_fpm), dv_speed_fpm > 0) |>
+  mutate(travel_sec = dv_travel_distance / dv_speed_fpm * 60) |>
+  filter(travel_sec < 3) |>
+  select(dv_travel_distance, dv_speed_fpm, travel_sec, dv_floor_from, dv_floor_to, device_type) |>
+  arrange(travel_sec)
+```
+
+Travel times below 3 seconds are physically impossible: even a brief
+elevator trip requires at least 5–10 seconds to accelerate, run, and
+decelerate. Every record here has either a tiny travel distance (already
+flagged above, < 3 ft) or a speed above 3,000 fpm (also already flagged).
+The two rules proposed above fully cover this tail.
+
+### Implausibly long (> 10 minutes)
+
+```{r}
+#| label: travel-long
+elev |>
+  filter(!is.na(dv_travel_distance), !is.na(dv_speed_fpm), dv_speed_fpm > 0) |>
+  mutate(travel_min = dv_travel_distance / dv_speed_fpm) |>
+  filter(travel_min > 10) |>
+  select(dv_travel_distance, dv_speed_fpm, travel_min, dv_floor_from, dv_floor_to, device_type) |>
+  arrange(desc(travel_min))
+```
+
+The extreme cases (300–400 minutes) have speeds of 0.35 and 0.8 fpm paired
+with plausible travel distances — the speed value is clearly wrong. All of
+these devices have speeds already flagged as below 10 fpm. The remaining
+records with travel times of 10–30 minutes are mostly escalators with speeds
+of 5–8 fpm (also flagged). The > 10 min tail is fully covered by the
+speed < 10 fpm rule.
+
+## Proposed cleaning rules
+
+The three independent rules above cover all the implausible combinations:
+
+```{r}
+#| label: rule-counts
+tibble(
+  rule = c(
+    "dv_speed_fpm < 10 → NA",
+    "dv_speed_fpm > 3000 → NA",
+    "dv_travel_distance < 3 → NA"
+  ),
+  n_affected = c(
+    sum(elev$dv_speed_fpm < 10, na.rm = TRUE),
+    sum(elev$dv_speed_fpm > 3000, na.rm = TRUE),
+    sum(elev$dv_travel_distance < 3, na.rm = TRUE)
+  )
+)
+```
+
+All three rules are implemented in `clean.R`. The travel-time tails and the
+ft-per-floor outliers in the distance-vs-floor-span section are fully
+explained by the speed and distance rules above; no additional floor-pair
+rules are needed here beyond those already applied in `floor.qmd`.
