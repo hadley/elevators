@@ -124,12 +124,12 @@ tables:
         examples: [OTIS, HOUSING AUTHORITY, PRIVATE RESIDENCE, MRL ELEVATOR, STALEY]
 
       - name: dv_travel_distance
-        type: string
+        type: number(quantity)
+        range: [0, 1300]
         description: >
-          Vertical travel distance of the device. Often omitted, and when
-          present the units and format are highly inconsistent: may be in
-          feet, feet-and-inches, or other notations. Use with caution.
-        examples: ["14'", "24 FT", "16'4\"", "73-10", "410"]
+          Vertical travel distance of the device in feet. Often omitted
+          (~62% missing). Parsed from highly inconsistent raw strings.
+          See travel-distance.qmd for details.
 
       - name: dv_speed_fpm
         type: number(quantity)

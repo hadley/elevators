@@ -38,6 +38,12 @@ elevators$dv_capacity_lbs <- suppressWarnings(
   as.numeric(gsub("[^0-9.].*$", "", elevators$dv_capacity_lbs))
 )
 
+# Convert dv_travel_distance to numeric feet
+source("clean-travel-distance.R")
+elevators$dv_travel_distance <- parse_travel_distance(
+  elevators$dv_travel_distance
+)
+
 # NA out coordinates outside NYC bounding box (lat 40.49-40.92, lon -74.27 to -73.68)
 out_of_bounds <- !is.na(elevators$latitude) &
   (elevators$latitude < 40.49 |

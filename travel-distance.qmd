@@ -1,0 +1,248 @@
+---
+title: "Cleaning `dv_travel_distance`"
+format:
+  html:
+    embed-resources: true
+execute:
+  echo: true
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: "#>"
+---
+
+```{r}
+#| label: setup
+#| message: false
+library(dplyr)
+library(stringr)
+library(ggplot2)
+```
+
+The raw `DV_TRAVEL_DISTANCE` column records the vertical travel distance of
+each device as free text, with no consistent units or format. This document
+looks at the raw values, divides them into groups, works out what each group
+means, and then derives the parsing rules implemented by
+`parse_travel_distance()` in `clean-travel-distance.R`, which `clean.R` uses
+to convert the column to numeric feet.
+
+## The raw values
+
+We read the raw strings directly from the CSV, applying the same whitespace
+normalization as `clean.R`:
+
+```{r}
+#| label: read-raw
+raw <- read.csv("elevators.csv", skip = 1)
+raw <- raw[!is.na(raw$BIN), ]
+distance <- trimws(gsub("\\s+", " ", raw$DV_TRAVEL_DISTANCE))
+distance[distance == ""] <- NA
+
+tibble(
+  n = length(distance),
+  missing = sum(is.na(distance)),
+  pct_missing = round(100 * mean(is.na(distance))),
+  unique_values = n_distinct(distance, na.rm = TRUE)
+)
+```
+
+About 62% of devices have no recorded travel distance, and the ~29k recorded
+values use ~4,800 distinct strings. The most common values hint at the mess:
+
+```{r}
+#| label: top-values
+sort(table(distance), decreasing = TRUE) |> head(20)
+```
+
+`60`, `60'`, and `60 FT` all clearly mean the same thing.
+
+## Dividing into groups
+
+Classifying every value by its lexical pattern:
+
+```{r}
+#| label: groups
+pattern_group <- function(x) {
+  case_when(
+    is.na(x) ~ "missing",
+    str_detect(x, "^\\d{4}-\\d{2}-\\d{2}$") ~ "date",
+    str_detect(x, "^\\d+$") ~ "bare number",
+    str_detect(x, "^\\d+\\s*'$") ~ "feet with '",
+    str_detect(x, "^\\d+\\s*'\\s*\\d+\\s*\"?$") ~ "feet ' inches",
+    str_detect(x, "^\\d+\\s*-\\s*\\d+\\s*\"?$") ~ "feet-inches dash",
+    str_detect(x, regex("FT|FEET", ignore_case = TRUE)) ~ "explicit FT",
+    str_detect(x, "^\\d+\\s*\"$") ~ "trailing \" only",
+    str_detect(x, "^\\d*\\.\\d+$") ~ "decimal",
+    TRUE ~ "other"
+  )
+}
+grp <- pattern_group(distance)
+
+tibble(value = distance, group = grp) |>
+  filter(!is.na(value)) |>
+  summarise(
+    n = n(),
+    distinct = n_distinct(value),
+    examples = paste(head(unique(value), 5), collapse = ", "),
+    .by = group
+  ) |>
+  arrange(desc(n))
+```
+
+## Per-group findings
+
+### Bare numbers (~9.4k values)
+
+The bulk of the column. The distribution (median 80, 99th percentile ~635)
+matches travel measured in **feet**: typical NYC elevators travel tens to a
+few hundred feet. A handful of values are physically impossible:
+
+```{r}
+#| label: bare-numbers
+bare <- as.numeric(distance[grp == "bare number"])
+summary(bare)
+sort(unique(bare[bare > 1300]))
+```
+
+The tallest elevator travel in NYC at the time of this data (late 2015) is
+roughly 1,250–1,300 ft (One World Trade Center), so values above 1,300 —
+and a single `0` — are set to missing. Everything else is accepted as feet.
+
+### Feet with a quote mark, or an explicit unit (~9.1k values)
+
+`60'`, `24FT`, `99 FT`, `6.5FT` are unambiguous feet. A few oddballs like
+`35FT"` and `39"FT` carry stray quote marks but the explicit `FT` settles
+the unit. All are accepted as feet.
+
+### Feet and inches (~8.8k values)
+
+The second-largest family writes feet and inches with a variety of
+separators:
+
+* apostrophe: `16'4"`, `103'1`, `14'0'`
+* dash: `73-10`, `60'-4`, `9-11'`
+* comma: `17,8`, `20,10`
+* space: `307 3`, `18 6"`
+* mistyped symbols: `33"6"`, `48"11`, `45"3"` (a `"` where the `'` belongs)
+
+The giveaway that the second number is inches: across all two-number values
+it is almost always 0–11.
+
+```{r}
+#| label: inches-distribution
+two_num <- str_match(distance, "^(\\d+)\\s*['\",-]\\s*-?(\\d{1,2})[\"'.:]*$")
+table(as.numeric(two_num[, 3]))
+```
+
+Values where the second number is 12 or more (`13'13`, `19'91`, `90/77`,
+about 50 in total) can't be feet-and-inches, and we have no way to know what
+was meant, so they are set to missing. The rest are converted as
+`feet + inches / 12`.
+
+We do *not* treat `/` as a feet-inches separator: values like `331/2`,
+`537/8`, and `141/2` read more naturally as mixed fractions (33½, 53⅞,
+14½), so slash-separated values are ambiguous and set to missing (~30
+values).
+
+### Decimals (~880 values)
+
+Values like `116.6`, `51.5`, `19.79`. Two readings are possible — decimal
+feet, or feet.inches — but the two-digit fractional parts (`.79`, `.92`)
+rule out inches for many, and for single-digit fractions the two readings
+differ by at most half a foot. Accepted as decimal feet.
+
+### Dates: Excel mangling (33 values)
+
+A surprise group: values like `2015-11-04`. These are feet-and-inches
+values (`11-4`) that Excel helpfully converted to dates in the
+then-current year when the FOIL extract was prepared (the data was received
+in November 2015). The evidence is strong: 31 of 33 have year 2015, and the
+"day" part is never above 11 — exactly what you'd expect if it were inches,
+and very unlikely for real dates.
+
+```{r}
+#| label: dates
+table(distance[grp == "date"])
+```
+
+The 2015 dates are recovered as `month + day / 12` feet. The two stray
+years (`2000-02-01`, `2004-04-03`) don't fit the pattern and are set to
+missing.
+
+### Trailing `"` only: genuinely ambiguous (~130 values)
+
+Values like `188"` or `1858"` look like inches, but cross-checking against
+the floors served shows the group is a mix of mistyped feet and true
+inches:
+
+```{r}
+#| label: ambiguous-inches
+tibble(
+  value = distance,
+  from = raw$DV_FLOOR_FROM,
+  to = raw$DV_FLOOR_TO
+) |>
+  filter(value %in% c("188\"", "1858\"", "552\"", "21\"", "102\"")) |>
+  distinct()
+```
+
+* `188"` serving L,1→21 must be 188 **feet** (188 in ≈ 16 ft can't span 21
+  floors).
+* `1858"` serving C→13 must be 1,858 **inches** (≈ 155 ft; 1,858 ft is
+  impossible).
+* `552"` serving 1→5 must be inches (≈ 46 ft); `21"` on a dumbwaiter
+  serving 1→3 must be feet.
+
+Since the unit flips value-by-value, no rule is reliable. All
+single-number values whose only annotation is a trailing `"` are set to
+missing.
+
+### Junk (~100 values)
+
+Letter codes and symbols with no recoverable number: `E`, `B`, `EXIST`,
+`ABOVE`, `BASE`, `-----`, `(E)`, `{`, `` ` ``. All set to missing.
+
+## The cleaning function
+
+The rules above are implemented in `parse_travel_distance()`, defined in
+`clean-travel-distance.R` and sourced by `clean.R`, which uses it to convert
+`dv_travel_distance` to numeric feet in `elevators.parquet`:
+
+```{r}
+#| label: source-clean
+source("clean-travel-distance.R")
+parse_travel_distance
+```
+
+## Results
+
+```{r}
+#| label: apply
+parsed <- parse_travel_distance(distance)
+
+tibble(value = distance, group = grp, parsed = parsed) |>
+  filter(!is.na(value)) |>
+  summarise(n = n(), parsed = sum(!is.na(parsed)), .by = group) |>
+  mutate(pct_parsed = round(100 * parsed / n)) |>
+  arrange(desc(n))
+```
+
+Overall `r round(100 * sum(!is.na(parsed)) / sum(!is.na(distance)), 1)`% of
+non-missing raw values were converted; the remaining
+`r sum(!is.na(distance) & is.na(parsed))` were rejected as ambiguous,
+impossible, or junk. The resulting distribution is plausible: most devices
+travel 10–200 ft, with a long tail of skyscraper elevators.
+
+```{r}
+#| label: histogram
+#| fig-height: 3
+ggplot(tibble(ft = parsed), aes(ft)) +
+  geom_histogram(binwidth = 10, na.rm = TRUE) +
+  scale_x_continuous(limits = c(0, 800)) +
+  labs(x = "Travel distance (ft)", y = "Devices")
+```
+
+```{r}
+#| label: summary
+summary(parsed)
+```
