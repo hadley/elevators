@@ -185,17 +185,21 @@ tables:
       - name: dv_floor_from
         type: string
         description: >
-          Lowest floor served by the device. May be a number (`1`), a
-          letter code (`B` for basement, `C` for cellar, `SB` for
-          sub-basement), or other notations.
-        examples: [B, "1", C, SB, L]
+          Lowest floor served by the device. May be an integer (`1`), a
+          standard letter code (`B` basement, `C` cellar, `L` lobby,
+          `G` ground, `M` mezzanine, `SB` sub-basement, `SC`
+          sub-cellar), or a comma-separated pair indicating two lobby
+          entry levels (e.g. `B,1`). See floor.qmd for details.
+        examples: [B, "1", C, SB, "B,1"]
 
       - name: dv_floor_to
         type: string
         description: >
-          Highest floor served by the device. May be a number or a
-          letter code.
-        examples: ["2", "6", "12", PH, R]
+          Highest floor served by the device. Uses the same notation as
+          `dv_floor_from`. Common letter codes include `PH` (penthouse),
+          `R` (roof), `T` (top), and `ST` (street). Subject to the same
+          cleaning as `dv_floor_from`.
+        examples: ["6", "12", PH, R, ST]
 
       - name: latitude
         type: number(quantity)

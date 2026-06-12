@@ -44,6 +44,28 @@ elevators$dv_travel_distance <- parse_travel_distance(
   elevators$dv_travel_distance
 )
 
+# Clean dv_floor_from and dv_floor_to.
+# See floor.qmd for the analysis behind these rules.
+clean_floor <- function(x) {
+  # Strip leading dots ("..B" -> "B", "..1" -> "1")
+  x <- sub("^\\.+", "", x)
+  # Decimal values (0.1, 0.6, etc.) are not valid floor labels
+  x <- ifelse(grepl("^\\d*\\.\\d+$", x), NA, x)
+  # Integer floors above NYC's tallest building (~104 floors) are impossible
+  int_val <- suppressWarnings(as.integer(x))
+  x <- ifelse(!is.na(int_val) & int_val > 104, NA, x)
+  x
+}
+elevators$dv_floor_from <- clean_floor(elevators$dv_floor_from)
+elevators$dv_floor_to <- clean_floor(elevators$dv_floor_to)
+
+# Swap inverted numeric floor pairs (floor_from > floor_to)
+from_int <- suppressWarnings(as.integer(elevators$dv_floor_from))
+to_int <- suppressWarnings(as.integer(elevators$dv_floor_to))
+inverted <- !is.na(from_int) & !is.na(to_int) & from_int > to_int
+elevators$dv_floor_from[inverted] <- as.character(to_int[inverted])
+elevators$dv_floor_to[inverted] <- as.character(from_int[inverted])
+
 # NA out coordinates outside NYC bounding box (lat 40.49-40.92, lon -74.27 to -73.68)
 out_of_bounds <- !is.na(elevators$latitude) &
   (elevators$latitude < 40.49 |

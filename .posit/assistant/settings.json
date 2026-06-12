@@ -5,7 +5,12 @@
     },
     "edit": {
       "*.yaml": "allow",
-      "*.R": "allow"
+      "*.R": "allow",
+      "*.qmd": "allow"
+    },
+    "bash": {
+      "cd *": "allow",
+      "air *": "allow"
     }
   }
 }
