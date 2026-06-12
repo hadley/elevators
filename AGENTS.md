@@ -1,6 +1,8 @@
 ## This package
 
-<!-- Insert package-specific content here. use_tidy_agents() will preserve this section when updating the rest of the file. -->
+* You can learn about data-dict.yaml at https://raw.githubusercontent.com/hadley/data-dict.yaml/refs/heads/main/spec.md.
+* Whenever you make changes to clean.R, always update data-dict.yaml in parallel, and re-generate the elevators.parquet.
+* Do not apply colours or themes to ggplot2 graphics unless specifically requested.
 
 ## Package development
 
