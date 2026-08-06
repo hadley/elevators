@@ -95,4 +95,53 @@ elevators$zip_code <- ifelse(
 # Replace ** with NA in dv_manufacturer (means unknown)
 elevators$dv_manufacturer[elevators$dv_manufacturer == "**"] <- NA
 
+# Drop unrecognised codes from the coded columns. The DOB supplied no code
+# list, so we keep every code used at least 10 times and treat the remainder
+# (digits, punctuation, and one-off letters) as data entry errors. This
+# affects 224 rows in total.
+valid_codes <- list(
+  dv_lastper_insp_disp = c("DF", "NV", "PI", "VF", "II"),
+  dv_car_buffer_type = c("S", "O", "R"),
+  dv_governor_type = c("C", "F", "N", "I", "B", "G", "O", "V"),
+  dv_machine_type = c(
+    "OG",
+    "GL",
+    "OH",
+    "BG",
+    "BD",
+    "OD",
+    "D",
+    "H",
+    "RP",
+    "O",
+    "T",
+    "A",
+    "B",
+    "LT",
+    "WT"
+  ),
+  dv_safety_type = c(
+    "I",
+    "F",
+    "G",
+    "W",
+    "N",
+    "O",
+    "B",
+    "C",
+    "E",
+    "L",
+    "M",
+    "P",
+    "S",
+    "U",
+    "V"
+  ),
+  dv_mode_operation = c("A", "P", "E", "C", "D", "S", "H", "N", "K", "R")
+)
+for (col in names(valid_codes)) {
+  x <- elevators[[col]]
+  elevators[[col]] <- ifelse(x %in% valid_codes[[col]], x, NA)
+}
+
 write_parquet(elevators, "elevators.parquet")
